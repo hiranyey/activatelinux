@@ -1,16 +1,31 @@
+#include <X11/Xft/Xft.h>
 #include <X11/Xlib.h>
-#include <X11/Xutil.h>
+#include <X11/extensions/Xrender.h>
+#include <fontconfig/fontconfig.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
-int main(void) {
+int main(int argc, char *argv[]) {
   Display *display = XOpenDisplay(NULL);
-  if (display == NULL) {
-    fprintf(stderr, "Can not connect to X server");
+  if (!display) {
+    fprintf(stderr, "Unable to open X display\n");
     return 1;
   }
+
   int screen = DefaultScreen(display);
+
+  XVisualInfo vinfo;
+  if (!XMatchVisualInfo(display, screen, 32, TrueColor, &vinfo)) {
+    fprintf(stderr, "No ARGB visual found\n");
+    return 1;
+  }
+
+  XSetWindowAttributes attr;
+  attr.colormap = XCreateColormap(display, DefaultRootWindow(display),
+                                  vinfo.visual, AllocNone);
+  attr.border_pixel = 0;
+  attr.background_pixel = 0;
+
   int screen_width = DisplayWidth(display, screen);
   int screen_height = DisplayHeight(display, screen);
   unsigned long white_pixel = WhitePixel(display, screen);
@@ -21,57 +36,62 @@ int main(void) {
   unsigned int window_height = 50;
   unsigned int window_border = 0;
 
-  XVisualInfo vinfo;
-  XMatchVisualInfo(display, DefaultScreen(display), 32, TrueColor, &vinfo);
-
-  XSetWindowAttributes attr;
-  attr.colormap = XCreateColormap(display, DefaultRootWindow(display),
-                                  vinfo.visual, AllocNone);
-  attr.border_pixel = 0;
-  attr.background_pixel = 0;
-
-  Window win = XCreateWindow(
-      display, RootWindow(display, screen), window_x, window_y, window_width,
+  Window window = XCreateWindow(
+      display, DefaultRootWindow(display), window_x, window_y, window_width,
       window_height, window_border, vinfo.depth, InputOutput, vinfo.visual,
       CWColormap | CWBorderPixel | CWBackPixel, &attr);
-  XStoreName(display, win, "ActivateLinux");
-  XMapWindow(display, win);
-  XFlush(display);
-  XCharStruct text_info;
 
-  XSelectInput(display, win, ExposureMask | KeyPressMask);
-  GC gc = XCreateGC(display, win, 0, NULL);
-  char *font_name = "-urw-urw bookman l-light-r-normal--0-0-0-0-p-0-iso8859-15";
-  XFontStruct *font = XLoadQueryFont(display, font_name);
-  if (font) {
-    XSetFont(display, gc, font->fid);
+  XStoreName(display, window, "ActivateLinux");
+  XSelectInput(display, window, ExposureMask);
+  XMapWindow(display, window);
+
+  XftDraw *xft_draw = XftDrawCreate(display, window, vinfo.visual,
+                                    DefaultColormap(display, screen));
+  FcPattern *pattern;
+  if (argc > 1) {
+    pattern = FcNameParse((const FcChar8 *)argv[1]);
   } else {
-    fprintf(stderr, "XLoadQueryFont: failed loading font '%s'\n", font_name);
+    pattern = FcNameParse((const FcChar8 *)"Iosevka NF-16");
   }
-  XSetForeground(display, gc, white_pixel);
+  FcConfigSubstitute(NULL, pattern, FcMatchPattern);
+  FcDefaultSubstitute(pattern);
+
+  FcResult result;
+  XftFont *font = XftFontOpenPattern(
+      display, XftFontMatch(display, screen, pattern, &result));
+  FcPatternDestroy(pattern);
+
+  if (!font) {
+    fprintf(stderr, "Unable to load font\n");
+    return 1;
+  }
+
+  XftColor color;
+  XRenderColor render_color = {0xffff, 0xffff, 0xffff, 0xffff};
+  XftColorAllocValue(display, vinfo.visual, DefaultColormap(display, screen),
+                     &render_color, &color);
+
   char *activateLinux = "Activate your linux";
   char *settingLine = "Go to Settings to activate Linux.";
   XEvent event;
+  while (1) {
 
-  while (True) {
     XNextEvent(display, &event);
-    switch (event.type) {
-    case Expose:
-      if (event.xexpose.count)
-        break;
-      XDrawString(display, win, gc, 20, 20, activateLinux,
-                  strlen(activateLinux));
-      XDrawString(display, win, gc, 20, 40, settingLine, strlen(settingLine));
-      break;
 
-    default:
+    if (event.type == Expose) {
+      XftDrawString8(xft_draw, &color, font, 20, 20, (XftChar8 *)activateLinux,
+                     strlen(activateLinux));
+      XftDrawString8(xft_draw, &color, font, 20, 40, (XftChar8 *)settingLine,
+                     strlen(settingLine));
+    } else if (event.type == KeyPress) {
       break;
     }
   }
 
-  XUnloadFont(display, font->fid);
-  XFreeGC(display, gc);
-  XDestroyWindow(display, win);
+  XftColorFree(display, vinfo.visual, DefaultColormap(display, screen), &color);
+  XftFontClose(display, font);
+  XftDrawDestroy(xft_draw);
   XCloseDisplay(display);
+
   return 0;
 }
