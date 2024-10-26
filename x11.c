@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
   XftColorAllocValue(display, vinfo.visual, DefaultColormap(display, screen),
                      &render_color, &color);
 
-  char *activateLinux = "Activate your linux";
+  char *activateLinux = "Activate your Linux";
   char *settingLine = "Go to Settings to activate Linux.";
   XEvent event;
   while (1) {

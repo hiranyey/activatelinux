@@ -1,15 +1,23 @@
-# Activate linux
+# Activate linux overlay in i3
+
+![Screenshot](screenshot.png)
 
 Build
+
 - make build
 
 Install
+
 - make install
 
 Run
+
 - ./main or activatelinux "FontName-FontSize"
+
   E.g:-
+
   activatelinux "Ubuntu Sans Mono-14"
+
   ./main "Ubuntu Mono-12"
 
 in i3 Config add
@@ -24,13 +32,8 @@ in picom or your compositor,disable all the blur,shadow,animation for this windo
 ```
 {
  match = "name='ActivateLinux'";
-shadow =false;
-fading =false;
-blur-background =false;
+ shadow =false;
+ fading =false;
+ blur-background =false;
 }
 ```
-
-References
-
-- https://ftp.dim13.org/pub/doc/Xlib.pdf
-- https://www.youtube.com/watch?v=764fnfEb1_c
