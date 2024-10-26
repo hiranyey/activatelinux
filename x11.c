@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
                      &render_color, &color);
 
   char *activateLinux = "Activate your Linux";
-  char *settingLine = "Go to Settings to activate Linux.";
+  char *settingLine = "Go to settings to activate Linux.";
   XEvent event;
   while (1) {
 
